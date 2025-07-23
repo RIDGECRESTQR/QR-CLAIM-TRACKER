@@ -13,28 +13,29 @@
     }
   </script>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 20px; }
+    body { font-family: sans-serif; padding: 20px; text-align: center; }
     .claimed { color: red; }
     .unclaimed { color: green; }
+    button { margin-top: 10px; padding: 6px 12px; font-size: 14px; }
   </style>
 </head>
 <body>
   <h2>QR Claim Tracker (GitHub Pages)</h2>
   <div id="scanner" style="width: 300px; margin: auto;"></div>
-  <p id="result"></p>
-  <button onclick="exportClaims()">Export Claimed</button>
+  <div id="result" style="margin-top: 20px;"></div>
+  <button id="exportBtn" onclick="exportClaims()">Export Claimed</button>
+
   <script>
     const claimedCodes = JSON.parse(localStorage.getItem("claimedCodes") || "[]");
 
     function updateDisplay(code) {
       const isClaimed = claimedCodes.includes(code);
-      document.getElementById("result").innerHTML = `
-        Code: <strong>${code}</strong><br>
-        Status: <span class="\${isClaimed ? 'claimed' : 'unclaimed'}">
-        \${isClaimed ? 'Already Claimed' : 'Not Claimed'}
-        </span><br>
-        \${isClaimed ? '' : '<button onclick="markClaimed(\'' + code + '\')">Mark as Claimed</button>'}
+      const resultHTML = `
+        <p><strong>Code:</strong> ${code}</p>
+        <p><strong>Status:</strong> ${isClaimed ? '✅ Already Claimed' : '🟢 Not Claimed'}</p>
+        ${!isClaimed ? `<button onclick="markClaimed('${code}')">Mark as Claimed</button>` : ''}
       `;
+      document.getElementById("result").innerHTML = resultHTML;
     }
 
     function markClaimed(code) {
