@@ -1,0 +1,115 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>QR Claim Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; text-align: center; }
+    .claimed { color: red; font-weight: bold; }
+    .unclaimed { color: green; font-weight: bold; }
+    button { margin: 10px; padding: 8px 16px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h2>QR Claim Tracker</h2>
+  <div id="scanner" style="width: 300px; margin: auto;"></div>
+  <div id="result" style="margin-top: 20px;"></div>
+  <button onclick="exportClaims()">Export Claimed</button>
+  <audio id="claimSound" preload="auto">
+    <source src="claimed.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const claimedCodes = JSON.parse(localStorage.getItem("claimedCodes") || "[]");
+    let html5QrCode;
+    let lastScannedCode = "";
+    let scanning = true;
+
+    function initScanner() {
+      html5QrCode = new Html5Qrcode("scanner");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => {
+          if (!scanning) return;
+          scanning = false;
+
+          const code = qrCodeMessage.trim();
+          lastScannedCode = code;
+
+          if (claimedCodes.includes(code)) {
+            showAlreadyClaimed(code);
+            setTimeout(() => {
+              document.getElementById("result").innerHTML = "";
+              scanning = true;
+            }, 7000);
+          } else {
+            showClaimPrompt(code);
+          }
+        },
+        errorMessage => {}
+      ).catch(err => console.error("Scanner start failed:", err));
+    }
+
+    function showAlreadyClaimed(code) {
+      document.getElementById("result").innerHTML = `
+        <p><strong>Code:</strong> ${code}</p>
+        <p class="claimed">❌ This code has already been claimed.</p>
+      `;
+    }
+
+    function showClaimPrompt(code) {
+      const container = document.getElementById("result");
+      container.innerHTML = `
+        <p><strong>Code:</strong> ${code}</p>
+        <p class="unclaimed">🟢 Not Claimed</p>
+      `;
+
+      const button = document.createElement("button");
+      button.textContent = "Mark as Claimed";
+      button.addEventListener("click", () => markClaimed(code));
+      container.appendChild(button);
+    }
+
+    function markClaimed(code) {
+      try {
+        document.getElementById("claimSound").play().catch(() => {});
+      } catch {}
+
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
+
+      if (!claimedCodes.includes(code)) {
+        claimedCodes.push(code);
+        localStorage.setItem("claimedCodes", JSON.stringify(claimedCodes));
+      }
+
+      document.getElementById("result").innerHTML = "<p>✅ Marked as Claimed</p><p>Ready for next scan...</p>";
+      setTimeout(() => {
+        document.getElementById("result").innerHTML = "";
+        scanning = true;
+      }, 7000);
+    }
+
+    function exportClaims() {
+      const csvContent = "data:text/csv;charset=utf-8,Code_ID\n" + claimedCodes.join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "claimed_codes.csv");
+      document.body.appendChild(link);
+      link.click();
+    }
+
+    window.onload = () => {
+      document.getElementById("claimSound").load();
+      initScanner();
+    };
+  </script>
+</body>
+</html>
