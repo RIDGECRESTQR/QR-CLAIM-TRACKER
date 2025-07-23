@@ -45,10 +45,14 @@
             lastCode = code;
             if (claimedCodes.includes(code)) {
               showAlreadyClaimed(code);
-              setTimeout(() => {
-                document.getElementById("result").innerHTML = "";
-                startScanner();
-              }, 2000);
+              
+      setTimeout(() => {
+        document.getElementById("result").innerHTML = "";
+        html5QrCode.clear().then(() => {
+          startScanner();
+        }).catch(() => startScanner());
+      }, 2000);
+    
             } else {
               showClaimPrompt(code);
             }

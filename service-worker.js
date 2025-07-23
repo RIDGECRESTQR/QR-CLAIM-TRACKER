@@ -1,4 +1,3 @@
-
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open('qr-tracker-cache').then(function(cache) {
