@@ -14,8 +14,8 @@
   </script>
   <style>
     body { font-family: sans-serif; padding: 20px; text-align: center; }
-    .claimed { color: red; }
-    .unclaimed { color: green; }
+    .claimed { color: red; font-weight: bold; }
+    .unclaimed { color: green; font-weight: bold; }
     button { margin: 10px; padding: 8px 16px; font-size: 14px; }
   </style>
 </head>
@@ -31,6 +31,7 @@
   <script>
     const claimedCodes = JSON.parse(localStorage.getItem("claimedCodes") || "[]");
     let html5QrCode;
+    let currentCode = "";
 
     function startScanner() {
       html5QrCode = new Html5Qrcode("scanner");
@@ -39,11 +40,9 @@
         { fps: 10, qrbox: 250 },
         qrCodeMessage => {
           html5QrCode.stop().then(() => {
-            
-    const scannedCode = qrCodeMessage.trim();
-    updateDisplay(scannedCode);
-    
-          }).catch(err => console.error("Stop failed", err));
+            currentCode = qrCodeMessage.trim();
+            updateDisplay(currentCode);
+          });
         },
         errorMessage => {}
       ).catch(err => console.error("Start failed", err));
@@ -51,16 +50,12 @@
 
     function updateDisplay(code) {
       const isClaimed = claimedCodes.includes(code);
-      const resultHTML = `
-        <p><strong>Code:</strong> ${code}</p>
-        <p><strong>Status:</strong> ${isClaimed ? '✅ Already Claimed' : '🟢 Not Claimed'}</p>
-        
-    ${!isClaimed 
-      ? `<button onclick="markClaimed('${code}')">Mark as Claimed</button>` 
-      : `<p style='color:red; font-weight:bold;'>❌ This code has already been claimed.</p>`}
-    
-      `;
-      document.getElementById("result").innerHTML = resultHTML;
+      let html = `<p><strong>Code:</strong> ${code}</p>`;
+      html += `<p class="${isClaimed ? 'claimed' : 'unclaimed'}">Status: ${isClaimed ? '❌ Already Claimed' : '🟢 Not Claimed'}</p>`;
+      if (!isClaimed) {
+        html += `<button onclick="markClaimed('${code}')">Mark as Claimed</button>`;
+      }
+      document.getElementById("result").innerHTML = html;
     }
 
     function markClaimed(code) {
