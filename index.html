@@ -3,7 +3,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>QR Claim Tracker (Firebase)</title>
+  <title>QR Claim Tracker (Scanner Fix)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -16,7 +16,7 @@
   </style>
 </head>
 <body>
-  <h2>QR Claim Tracker (Firebase)</h2>
+  <h2>QR Claim Tracker (Debug Scan)</h2>
   <div id="scanner" style="width: 300px; margin: auto;"></div>
   <div id="result" style="margin-top: 20px;"></div>
   <button onclick="exportClaims()">Export Claimed</button>
@@ -40,31 +40,40 @@
     const db = firebase.database();
 
     let html5QrCode;
-    let scanning = true;
+    let scanning = false;
 
-    function initScanner() {
-      html5QrCode = new Html5Qrcode("scanner");
+    function startScanner() {
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("scanner");
+      }
+
       html5QrCode.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
         qrCodeMessage => {
-          if (!scanning) return;
-          scanning = false;
+          console.log("Scanned:", qrCodeMessage);
+          if (scanning) return;
+          scanning = true;
+
           const code = qrCodeMessage.trim();
           db.ref("claimed/" + code).once("value").then(snapshot => {
             if (snapshot.exists()) {
               showAlreadyClaimed(code);
               setTimeout(() => {
                 document.getElementById("result").innerHTML = "";
-                scanning = true;
+                scanning = false;
               }, 7000);
             } else {
               showClaimPrompt(code);
             }
           });
         },
-        () => {}
-      ).catch(err => console.error("Camera start failed", err));
+        errorMessage => {
+          console.log("QR error:", errorMessage);
+        }
+      ).catch(err => {
+        console.error("Failed to start scanner:", err);
+      });
     }
 
     function showAlreadyClaimed(code) {
@@ -100,17 +109,19 @@
       document.getElementById("result").innerHTML = "<p>✅ Marked as Claimed</p><p>Ready for next scan...</p>";
       setTimeout(() => {
         document.getElementById("result").innerHTML = "";
-        scanning = true;
+        scanning = false;
       }, 7000);
     }
 
     function exportClaims() {
-      alert("Claim export is only available through Firebase Admin tools.");
+      alert("Use Firebase console to export claim logs.");
     }
 
     window.onload = () => {
       document.getElementById("claimSound").load();
-      initScanner();
+      setTimeout(() => {
+        startScanner();
+      }, 500);
     };
   </script>
 </body>
