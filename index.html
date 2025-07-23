@@ -1,0 +1,100 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>QR Claim Tracker (GitHub Pages)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; text-align: center; }
+    .claimed { color: red; }
+    .unclaimed { color: green; }
+    button { margin: 10px; padding: 8px 16px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h2>QR Claim Tracker (GitHub Pages)</h2>
+  <div id="scanner" style="width: 300px; margin: auto;"></div>
+  <div id="result" style="margin-top: 20px;"></div>
+  <button onclick="exportClaims()">Export Claimed</button>
+  <audio id="claimSound" preload="auto">
+    <source src="claimed.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const claimedCodes = JSON.parse(localStorage.getItem("claimedCodes") || "[]");
+    let html5QrCode;
+
+    function startScanner() {
+      html5QrCode = new Html5Qrcode("scanner");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => {
+          html5QrCode.stop().then(() => {
+            updateDisplay(qrCodeMessage.trim());
+          }).catch(err => console.error("Stop failed", err));
+        },
+        errorMessage => {}
+      ).catch(err => console.error("Start failed", err));
+    }
+
+    function updateDisplay(code) {
+      const isClaimed = claimedCodes.includes(code);
+      const resultHTML = `
+        <p><strong>Code:</strong> ${code}</p>
+        <p><strong>Status:</strong> ${isClaimed ? '✅ Already Claimed' : '🟢 Not Claimed'}</p>
+        ${!isClaimed ? `<button onclick="markClaimed('${code}')">Mark as Claimed</button>` : ''}
+      `;
+      document.getElementById("result").innerHTML = resultHTML;
+    }
+
+    function markClaimed(code) {
+      const sound = document.getElementById("claimSound");
+      try {
+        sound.play().catch(err => console.warn("Audio blocked:", err));
+      } catch (err) {
+        console.error("Audio failed:", err);
+      }
+
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
+
+      if (!claimedCodes.includes(code)) {
+        claimedCodes.push(code);
+        localStorage.setItem("claimedCodes", JSON.stringify(claimedCodes));
+      }
+
+      document.getElementById("result").innerHTML = "<p>✅ Marked as Claimed</p><p>Ready for next scan...</p>";
+
+      setTimeout(() => {
+        document.getElementById("result").innerHTML = "";
+        startScanner();
+      }, 1500);
+    }
+
+    function exportClaims() {
+      const csvContent = "data:text/csv;charset=utf-8,Code_ID\n" + claimedCodes.join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "claimed_codes.csv");
+      document.body.appendChild(link);
+      link.click();
+    }
+
+    window.onload = () => {
+      document.getElementById("claimSound").load();
+      startScanner();
+    };
+  </script>
+</body>
+</html>
