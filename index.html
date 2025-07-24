@@ -3,10 +3,9 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>QR Claim Tracker (Scanner Fix)</title>
+  <title>QR Claim Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <link rel="manifest" href="manifest.json">
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
     body { font-family: sans-serif; padding: 20px; text-align: center; }
@@ -16,7 +15,7 @@
   </style>
 </head>
 <body>
-  <h2>QR Claim Tracker (Debug Scan)</h2>
+  <h2>QR Claim Tracker</h2>
   <div id="scanner" style="width: 300px; margin: auto;"></div>
   <div id="result" style="margin-top: 20px;"></div>
   <button onclick="exportClaims()">Export Claimed</button>
@@ -25,60 +24,40 @@
   </audio>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDY2aI8k_OFsy2OTJd5fh2Kt4c2DabZo7U",
-      authDomain: "ridgecrest-elementary.firebaseapp.com",
-      databaseURL: "https://ridgecrest-elementary-default-rtdb.firebaseio.com",
-      projectId: "ridgecrest-elementary",
-      storageBucket: "ridgecrest-elementary.appspot.com",
-      messagingSenderId: "524308489205",
-      appId: "1:524308489205:web:ffa4a1f52f65a09f9d76bc",
-      measurementId: "G-VZM18QW6S"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
+    const claimedCodes = JSON.parse(localStorage.getItem("claimedCodes") || "[]");
     let html5QrCode;
-    let scanning = false;
+    let lastScannedCode = "";
+    let scanning = true;
 
-    function startScanner() {
-      if (!html5QrCode) {
-        html5QrCode = new Html5Qrcode("scanner");
-      }
-
+    function initScanner() {
+      html5QrCode = new Html5Qrcode("scanner");
       html5QrCode.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
         qrCodeMessage => {
-          console.log("Scanned:", qrCodeMessage);
-          if (scanning) return;
-          scanning = true;
+          if (!scanning) return;
+          scanning = false;
 
           const code = qrCodeMessage.trim();
-          db.ref("claimed/" + code).once("value").then(snapshot => {
-            if (snapshot.exists()) {
-              showAlreadyClaimed(code);
-              setTimeout(() => {
-                document.getElementById("result").innerHTML = "";
-                scanning = false;
-              }, 7000);
-            } else {
-              showClaimPrompt(code);
-            }
-          });
+          lastScannedCode = code;
+
+          if (claimedCodes.includes(code)) {
+            showAlreadyClaimed(code);
+            setTimeout(() => {
+              document.getElementById("result").innerHTML = "";
+              scanning = true;
+            }, 7000);
+          } else {
+            showClaimPrompt(code);
+          }
         },
-        errorMessage => {
-          console.log("QR error:", errorMessage);
-        }
-      ).catch(err => {
-        console.error("Failed to start scanner:", err);
-      });
+        errorMessage => {}
+      ).catch(err => console.error("Scanner start failed:", err));
     }
 
     function showAlreadyClaimed(code) {
       document.getElementById("result").innerHTML = `
-        <p><strong>Code:</strong> $QR0500</p>
+        <p><strong>Code:</strong> ${code}</p>
         <p class="claimed">❌ This code has already been claimed.</p>
       `;
     }
@@ -86,42 +65,50 @@
     function showClaimPrompt(code) {
       const container = document.getElementById("result");
       container.innerHTML = `
-        <p><strong>Code:</strong> $QR0500</p>
+        <p><strong>Code:</strong> ${code}</p>
         <p class="unclaimed">🟢 Not Claimed</p>
       `;
+
       const button = document.createElement("button");
       button.textContent = "Mark as Claimed";
-      button.addEventListener("click", () => claimCode(code));
+      button.addEventListener("click", () => markClaimed(code));
       container.appendChild(button);
     }
 
-    function claimCode(code) {
+    function markClaimed(code) {
       try {
         document.getElementById("claimSound").play().catch(() => {});
       } catch {}
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 
-      db.ref("claimed/" + code).set({
-        claimed: true,
-        timestamp: Date.now()
-      });
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
+
+      if (!claimedCodes.includes(code)) {
+        claimedCodes.push(code);
+        localStorage.setItem("claimedCodes", JSON.stringify(claimedCodes));
+      }
 
       document.getElementById("result").innerHTML = "<p>✅ Marked as Claimed</p><p>Ready for next scan...</p>";
       setTimeout(() => {
         document.getElementById("result").innerHTML = "";
-        scanning = false;
+        scanning = true;
       }, 7000);
     }
 
     function exportClaims() {
-      alert("Use Firebase console to export claim logs.");
+      const csvContent = "data:text/csv;charset=utf-8,Code_ID\n" + claimedCodes.join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "claimed_codes.csv");
+      document.body.appendChild(link);
+      link.click();
     }
 
     window.onload = () => {
       document.getElementById("claimSound").load();
-      setTimeout(() => {
-        startScanner();
-      }, 500);
+      initScanner();
     };
   </script>
 </body>
